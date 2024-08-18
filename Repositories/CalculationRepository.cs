@@ -1,11 +1,13 @@
-﻿using MathAPI.Models;
+﻿using MathAPI.Data;
+using MathAPI.Models;
+using System.Data.SQLite;
 
 namespace MathAPI.Repositories
 {
     public class CalculationRepository : ICalculationRepository
     {
-        private readonly ApplicationDBContext _context;
-        public CalculationRepository(ApplicationDBContext context) {
+        private readonly ApplicationDbContext _context;
+        public CalculationRepository(ApplicationDbContext context) {
             _context = context;
         }
 
