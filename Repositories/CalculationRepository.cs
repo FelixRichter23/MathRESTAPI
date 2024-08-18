@@ -1,5 +1,4 @@
-﻿using MathAPI.Data;
-using MathAPI.Models;
+﻿using MathAPI.Models;
 using SqlKata.Execution;
 
 namespace MathAPI.Repositories

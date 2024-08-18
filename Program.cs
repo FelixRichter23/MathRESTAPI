@@ -1,4 +1,3 @@
-using MathAPI.Data;
 using MathAPI.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
