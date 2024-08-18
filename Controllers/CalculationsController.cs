@@ -16,27 +16,30 @@ namespace MathAPI.Controllers
         }
 
         [HttpPost]
-        public Calculation CreateCalculation()
+        public ActionResult<Calculation> CreateCalculation([FromBody] string expression)
         {
-            return new Calculation {};
+            return new Calculation("");
         }
 
         [HttpGet("{id:int}")]
-        public Calculation GetCalculation(int id)
+        public ActionResult<Calculation> GetCalculation(int id)
         {
-            return new Calculation {};
+            return new OkObjectResult(new
+            {
+                Calculation = "Test"
+            });
         }
 
         [HttpPut("{id:int}")]
-        public Calculation UpdateCalculation(int id)
+        public ActionResult<Calculation> UpdateCalculation(int id)
         {
-            return new Calculation {};
+            return new Calculation("");
         }
 
         [HttpDelete("{id:int}")]
-        public Calculation DeleteCalculation(int id)
+        public ActionResult<Calculation> DeleteCalculation(int id)
         {
-            return new Calculation {};
+            return new Calculation("");
         }
     }
 }

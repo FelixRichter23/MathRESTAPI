@@ -5,12 +5,12 @@ namespace MathAPI.Repositories
 {
     public interface ICalculationRepository
     {
-        public Calculation CreateCalculation();
+        public int SaveCalculation(Calculation calculation);
 
         public Calculation GetCalculation(int id);
 
-        public Calculation UpdateCalculation(int id);
+        public void UpdateCalculation(Calculation calculation);
 
-        public Calculation DeleteCalculation(int id);
+        public void DeleteCalculation(int id);
     }
 }

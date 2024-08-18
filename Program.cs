@@ -1,6 +1,11 @@
 using MathAPI.Data;
+using MathAPI.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+using SqlKata.Compilers;
+using SqlKata.Execution;
 using System.Configuration;
+using System.Data.SqlClient;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,9 +16,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddDbContext<ApplicationDbContext>(options => 
+builder.Services.AddSingleton<ICalculationRepository, CalculationRepository>();
+
+builder.Services.AddTransient<QueryFactory>(options => 
 {
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    var connection = new SqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"));
+
+    return new QueryFactory(connection, new SqlServerCompiler());
 });
 
 var app = builder.Build();
