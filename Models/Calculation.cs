@@ -11,13 +11,26 @@ namespace MathAPI.Models
         public string expression { get; private set; }
         public double result { get; private set; }
         public DateTime lastUpdate { get; private set; }
+
         private Dictionary<int, Lazy<Calculation>> _relations;
-        private readonly CalculationRepository _repository;
-        public Calculation(string expression)
+        private readonly ICalculationRepository _repository;
+
+        public Calculation()
         {
+
+        }
+
+        public Calculation(string expression, ICalculationRepository repository, int? id = null)
+        {
+            this.id = id;
+
             if (expression == null) throw new ArgumentNullException();
 
-            expression.Replace(" ", string.Empty);
+            expression = expression.Replace(" ", string.Empty);
+
+            _relations = new Dictionary<int, Lazy<Calculation>>();
+
+            _repository = repository;
 
             if (expression == string.Empty) throw new ArgumentNullException();
 
@@ -27,6 +40,13 @@ namespace MathAPI.Models
 
             this.expression = expression;
         }
+
+        /// <summary>
+        /// Ensures that brackets in the expression are correctly balanced and formatted.
+        /// </summary>
+        /// <param name="expression"></param>
+        /// <returns>True if the brackets are in a valid format.</returns>
+        /// <exception cref="ArgumentException"></exception>
 
         private static bool CheckBracklets(string expression)
         {
@@ -53,6 +73,12 @@ namespace MathAPI.Models
             return true;
         }
 
+        /// <summary>
+        /// Identifies and loads related calculations referenced by IDs within curly braces in the expression.
+        /// </summary>
+        /// <param name="expression"></param>
+        /// <exception cref="ArgumentException"></exception>
+
         private void LoadRelations(string expression) {
             int index = expression.IndexOf('{');
 
@@ -66,17 +92,24 @@ namespace MathAPI.Models
                 _relations.Add(id, new Lazy<Calculation>(() => { return _repository.GetCalculation(id); }));
             }
         }
-        // (1.5 +)*3 + 4^5/2 - log(8;2)
 
-        // 1. Klammern vor Allem
-        // 2. Punkt vor Strich
-        // 3. Resliche brechnungen
+        /// <summary>
+        /// Performs the calculation and returns it.
+        /// </summary>
+        /// <returns>Result as double</returns>
 
-        private double CalculateResult(string expression)
+        public Calculation Calculate()
         {
-            expression.IndexOf('(');
+            result = calculate();
+            lastUpdate = DateTime.Now;
+            return this;
+        }
 
-            return 0;
+        private double calculate()
+        {
+            result = EvaluateExpression(expression);
+            lastUpdate = DateTime.Now;
+            return result;
         }
     }
 }

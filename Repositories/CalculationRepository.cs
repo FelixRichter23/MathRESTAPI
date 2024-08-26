@@ -28,7 +28,7 @@ namespace MathAPI.Repositories
 
         public void UpdateCalculation(Calculation calculation)
         {
-            _db.Query(_tableName).Update(new
+            _db.Query(_tableName).Where("Id",calculation.id).Update(new
             {
                 Expression = calculation.expression,
                 Result = calculation.result,
