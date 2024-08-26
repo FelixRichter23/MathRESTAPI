@@ -111,5 +111,39 @@ namespace MathAPI.Models
             lastUpdate = DateTime.Now;
             return result;
         }
+
+        private List<string> SplitByOperators(string expression, char[] operators)
+        {
+            var result = new List<string>();
+            int lastSplitIndex = 0;
+
+            for (int i = 0; i < expression.Length; i++)
+            {
+                if (operators.Contains(expression[i]))
+                {
+                    result.Add(expression.Substring(lastSplitIndex, i - lastSplitIndex));
+                    result.Add(expression[i].ToString());
+                    lastSplitIndex = i + 1;
+                }
+            }
+
+            if (lastSplitIndex < expression.Length)
+            {
+                result.Add(expression.Substring(lastSplitIndex));
+            }
+
+            return result;
+        }
+        public void Save()
+        {
+            if (id == null)
+            {
+                id = _repository.SaveCalculation(this);
+            }
+            else
+            {
+                _repository.UpdateCalculation(this);
+            }
+        }
     }
 }
