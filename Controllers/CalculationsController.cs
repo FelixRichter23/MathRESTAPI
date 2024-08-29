@@ -17,7 +17,7 @@ namespace MathAPI.Controllers
         [HttpPost]
         public ActionResult<Calculation> CreateCalculation([FromBody] string expression)
         {
-            return temp(null, _calculationsRepo, expression);
+            return CalculationHelper(null, _calculationsRepo, expression);
         }
 
         [HttpGet("{id:int}")]
@@ -29,7 +29,7 @@ namespace MathAPI.Controllers
         [HttpPut("{id:int}")]
         public ActionResult<Calculation> UpdateCalculation(int id, [FromBody] string expression)
         {
-            return temp(id, _calculationsRepo, expression);
+            return CalculationHelper(id, _calculationsRepo, expression);
         }
 
         [HttpDelete("{id:int}")]
@@ -40,7 +40,7 @@ namespace MathAPI.Controllers
             return new OkResult();
         }
 
-        private ActionResult<Calculation> temp(int? id, ICalculationRepository _calculationsRepo, string expression)
+        private ActionResult<Calculation> CalculationHelper(int? id, ICalculationRepository _calculationsRepo, string expression)
         {
             Calculation calculation = null;
 

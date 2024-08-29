@@ -15,7 +15,7 @@ namespace MathAPI.Repositories
         {
             return _db.Query(_tableName).InsertGetId<int>(new
             {
-                Expression = calculation.expression,
+                Expression = calculation.expressionWithRelations,
                 Result = calculation.result,
                 LastUpdate = calculation.lastUpdate
             });

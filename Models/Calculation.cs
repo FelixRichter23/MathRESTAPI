@@ -1,7 +1,10 @@
 ﻿using MathAPI.Repositories;
+using Microsoft.IdentityModel.Tokens;
 using System.Linq.Expressions;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace MathAPI.Models
 {
@@ -9,6 +12,7 @@ namespace MathAPI.Models
     {
         public int? id { get; private set; }
         public string expression { get; private set; }
+        public string expressionWithRelations { get; private set; }
         public double result { get; private set; }
         public DateTime lastUpdate { get; private set; }
 
@@ -24,9 +28,10 @@ namespace MathAPI.Models
         {
             this.id = id;
 
-            if (expression == null) throw new ArgumentNullException();
-
             expression = expression.Replace(" ", string.Empty);
+            this.expressionWithRelations = expression;
+            expression = expression.Replace(".", ",");
+            expression = expression.Trim();
 
             _relations = new Dictionary<int, Lazy<Calculation>>();
 
@@ -36,7 +41,7 @@ namespace MathAPI.Models
 
             CheckBracklets(expression);
 
-            LoadRelations(expression);
+            expression = LoadRelations(expression);
 
             this.expression = expression;
         }
@@ -53,18 +58,24 @@ namespace MathAPI.Models
             int count = 0;
             int curlyCount = 0;
 
-            foreach (char bracket in expression.Where(c =>
-                c == '(' ||
-                c == ')' ||
-                c == '{' ||
-                c == '}'))
+            foreach (char bracket in expression.Where(c => c == '(' ||c == ')'))
             {
                 if (bracket == '(') count++;
                 if (bracket == ')') count--;
-                if (bracket == '{') curlyCount++;
-                if (bracket == '}') curlyCount--;
-                if (count < 0 || curlyCount < 0) 
+                if (count < 0)
+                {
                     throw new ArgumentException("The brackets in the expression are not formatted correctly.");
+                }
+            }
+
+            foreach (char bracket in expression.Where(c => c == '[' || c == ']'))
+            {
+                if (bracket == '[') count++;
+                if (bracket == ']') count--;
+                if (count < 0 || count > 1)
+                {
+                    throw new ArgumentException("The curly brackets in the expression are not formatted correctly.");
+                }
             }
 
             if (count != 0 || curlyCount != 0) 
@@ -79,18 +90,29 @@ namespace MathAPI.Models
         /// <param name="expression"></param>
         /// <exception cref="ArgumentException"></exception>
 
-        private void LoadRelations(string expression) {
-            int index = expression.IndexOf('{');
+        private string LoadRelations(string expression) 
+        {
+            expression = expression.Replace("{", "[");
+            expression = expression.Replace("}", "]");
 
-            while (index != -1) {
-                index = expression.IndexOf('{', index);
-                
-                string idAsString = expression.Substring(index, expression.IndexOf('}', index) - index);
+            string pattern = @"\[(\d+)\]";
 
-                if(!int.TryParse(idAsString, out int id)) { throw new ArgumentException("The relation id is not a number."); }
+            MatchCollection matches = Regex.Matches(expression, pattern);
 
-                _relations.Add(id, new Lazy<Calculation>(() => { return _repository.GetCalculation(id); }));
+            foreach (Match match in matches)
+            {
+                if (int.TryParse(match.Groups[1].Value, out int number))
+                {
+                    expression = expression.Replace($"[{number}]", _repository.GetCalculation(number).expression);
+                }
             }
+
+            if (expression.Contains("["))
+            {
+                return LoadRelations(expression);
+            }
+
+            return expression;
         }
 
         /// <summary>
@@ -100,40 +122,90 @@ namespace MathAPI.Models
 
         public Calculation Calculate()
         {
-            result = calculate();
+            result = calculate(expression);
             lastUpdate = DateTime.Now;
             return this;
         }
 
-        private double calculate()
+        private double calculate(string expression)
         {
-            result = EvaluateExpression(expression);
-            lastUpdate = DateTime.Now;
-            return result;
-        }
-
-        private List<string> SplitByOperators(string expression, char[] operators)
-        {
-            var result = new List<string>();
-            int lastSplitIndex = 0;
-
-            for (int i = 0; i < expression.Length; i++)
+            if (string.IsNullOrEmpty(expression))
             {
-                if (operators.Contains(expression[i]))
+                throw new ArgumentNullException();
+            }
+
+            if (double.TryParse(expression, out double result))
+            {
+                return result;
+            }
+
+            var parenthensisPairs = expression.GetParenthensisIndices(('(', ')'));
+
+            if (parenthensisPairs.Where(par => par.open == 0 && par.close == expression.Length - 1).Any())
+            {
+                expression = expression.Remove(0, 1);
+                expression = expression.Remove(expression.Length - 1, 1);
+            }
+
+            if (expression.ContainsNotInParenthensis("+", out int plusIndex) | 
+                expression.ContainsNotInParenthensis("-", out int minusIndex))
+            {
+                if (plusIndex > 0)
                 {
-                    result.Add(expression.Substring(lastSplitIndex, i - lastSplitIndex));
-                    result.Add(expression[i].ToString());
-                    lastSplitIndex = i + 1;
+                    return
+                        calculate(expression.Substring(0, plusIndex))
+                        + calculate(expression.Substring(plusIndex + 1, expression.Length - plusIndex - 1));
+                }
+
+                if (minusIndex > 0)
+                {
+                    return
+                       calculate(expression.Substring(0, minusIndex))
+                       - calculate(expression.Substring(minusIndex + 1, expression.Length - minusIndex - 1));
                 }
             }
 
-            if (lastSplitIndex < expression.Length)
+            if (expression.ContainsNotInParenthensis("*", out int factorIndex) | 
+                expression.ContainsNotInParenthensis("/", out int divisorIndex))
             {
-                result.Add(expression.Substring(lastSplitIndex));
+                if (factorIndex > 0)
+                {
+                    return
+                        calculate(expression.Substring(0, factorIndex))
+                        * calculate(expression.Substring(factorIndex + 1, expression.Length - factorIndex - 1));
+                }
+
+                if (divisorIndex > 0)
+                {
+                    return
+                       calculate(expression.Substring(0, divisorIndex))
+                       / calculate(expression.Substring(divisorIndex + 1, expression.Length - divisorIndex - 1));
+                }
             }
 
-            return result;
+            if (expression.ContainsNotInParenthensis("^", out int powerIndex) | 
+                expression.ContainsNotInParenthensis("log", out int logIndex))
+            {
+                if (powerIndex > 0)
+                {
+                    return Math.Pow(calculate(expression.Substring(0, powerIndex)),
+                        calculate(expression.Substring(powerIndex + 1, expression.Length - powerIndex - 1)));
+                }
+
+                if (logIndex >= 0)
+                {
+                    var logOpen = expression.IndexOf("(", logIndex);
+                    var logClose = expression.IndexOf(")", logOpen);
+                    var logStrings = expression.Substring(logOpen + 1, logClose - logOpen - 1).Split(";");
+
+                    return Math.Log(calculate(logStrings[0]),
+                        calculate(logStrings[1]));
+                }
+            }
+
+            throw new InvalidOperationException();
         }
+
         public void Save()
         {
             if (id == null)
