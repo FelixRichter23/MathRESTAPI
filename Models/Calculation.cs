@@ -1,8 +1,11 @@
 ﻿using MathAPI.Repositories;
 using Microsoft.IdentityModel.Tokens;
+using System.ComponentModel;
+using System.Data;
 using System.Linq.Expressions;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -11,40 +14,49 @@ namespace MathAPI.Models
     public class Calculation
     {
         public int? id { get; private set; }
-        public string expression { get; private set; }
-        public string expressionWithRelations { get; private set; }
+        public string expression { get; set; }
         public double result { get; private set; }
-        public DateTime lastUpdate { get; private set; }
+        public bool isDeprecated { get; set; } = true;
 
         private Dictionary<int, Lazy<Calculation>> _relations;
-        private readonly ICalculationRepository _repository;
+
+        public ICalculationRepository _calculationRepository;
+        public IRelationRepository _relationRepository;
+        private List<int> _dependencies { get; set; } = new List<int>();
 
         public Calculation()
         {
 
         }
 
-        public Calculation(string expression, ICalculationRepository repository, int? id = null)
+        public Calculation(string expression, ICalculationRepository calcRepo, IRelationRepository relationRepo, int? id = null)
         {
             this.id = id;
+            _relations = new Dictionary<int, Lazy<Calculation>>();
+            _calculationRepository = calcRepo;
+            _relationRepository = relationRepo;  
+            this.expression = expression;
+            ValidateExpression();
+        }
+
+        private void ValidateExpression()
+        {
+            if (string.IsNullOrEmpty(expression)) throw new ArgumentNullException();
 
             expression = expression.Replace(" ", string.Empty);
-            this.expressionWithRelations = expression;
-            expression = expression.Replace(".", ",");
             expression = expression.Trim();
+            expression = expression.Replace(".", ",");
 
-            _relations = new Dictionary<int, Lazy<Calculation>>();
+            Regex validFormulaRegex = new Regex(@"^(?:log\(\d+;\d+\)|\d+(?:\,\d+)?(?:\^\d+(?:\,\d+)?)?|[+\-*\/()]|\{\d+\})+$");
 
-            _repository = repository;
+            if (!validFormulaRegex.IsMatch(expression))
+            {
+                throw new ArgumentException("The expression contains invalid symbols or characters.");
+            }
 
-            if (expression == string.Empty) throw new ArgumentNullException();
-
-            CheckBracklets(expression);
-
-            expression = LoadRelations(expression);
-
-            this.expression = expression;
+            CheckBracklets();
         }
+
 
         /// <summary>
         /// Ensures that brackets in the expression are correctly balanced and formatted.
@@ -53,7 +65,7 @@ namespace MathAPI.Models
         /// <returns>True if the brackets are in a valid format.</returns>
         /// <exception cref="ArgumentException"></exception>
 
-        private static bool CheckBracklets(string expression)
+        private void CheckBracklets()
         {
             int count = 0;
             int curlyCount = 0;
@@ -68,10 +80,10 @@ namespace MathAPI.Models
                 }
             }
 
-            foreach (char bracket in expression.Where(c => c == '[' || c == ']'))
+            foreach (char bracket in expression.Where(c => c == '{' || c == '}'))
             {
-                if (bracket == '[') count++;
-                if (bracket == ']') count--;
+                if (bracket == '{') count++;
+                if (bracket == '}') count--;
                 if (count < 0 || count > 1)
                 {
                     throw new ArgumentException("The curly brackets in the expression are not formatted correctly.");
@@ -80,8 +92,6 @@ namespace MathAPI.Models
 
             if (count != 0 || curlyCount != 0) 
                 throw new ArgumentException("The brackets in the expression are not formatted correctly.");
-
-            return true;
         }
 
         /// <summary>
@@ -92,26 +102,22 @@ namespace MathAPI.Models
 
         private string LoadRelations(string expression) 
         {
-            expression = expression.Replace("{", "[");
-            expression = expression.Replace("}", "]");
-
-            string pattern = @"\[(\d+)\]";
-
-            MatchCollection matches = Regex.Matches(expression, pattern);
-
+            var matches = Regex.Matches(expression, @"{(\d+)}");
             foreach (Match match in matches)
             {
-                if (int.TryParse(match.Groups[1].Value, out int number))
+                int refId = int.Parse(match.Groups[1].Value);
+
+                if (refId == this.id)
                 {
-                    expression = expression.Replace($"[{number}]", _repository.GetCalculation(number).expression);
+                    throw new ArgumentException("An expression cannot refer to itself.");
                 }
-            }
 
-            if (expression.Contains("["))
-            {
-                return LoadRelations(expression);
-            }
+                _dependencies.Add(refId);
 
+                var refCalculation = GetCalculation(refId, _calculationRepository);
+
+                expression = expression.Replace(match.Value, refCalculation.result.ToString());
+            }
             return expression;
         }
 
@@ -122,8 +128,8 @@ namespace MathAPI.Models
 
         public Calculation Calculate()
         {
-            result = calculate(expression);
-            lastUpdate = DateTime.Now;
+            result = calculate(LoadRelations(expression));
+            this.isDeprecated = false;
             return this;
         }
 
@@ -206,15 +212,68 @@ namespace MathAPI.Models
             throw new InvalidOperationException();
         }
 
+        public static Calculation GetCalculation(int id, ICalculationRepository calculationRepo)
+        {
+            Calculation calculation;
+
+            try
+            {
+                calculation = calculationRepo.GetCalculation(id);
+                calculation._calculationRepository = calculationRepo;
+            }
+            catch ( Exception e )
+            {
+                throw new ArgumentException($"A calculation with id {id} does not exist.");
+            }
+
+            if (calculation.isDeprecated)
+            {
+                calculation.Calculate();
+                calculation._calculationRepository.UpdateCalculation(calculation);
+            }
+
+            return calculation;
+        }
+
+        public void MarkDependentsAsDeprecated()
+        {
+            if (this.id == null) return;
+
+            // Suchen Sie nach allen Berechnungen, die von der geänderten Berechnung abhängen
+            var dependents = _relationRepository.GetDependents((int)this.id);
+
+            foreach (var dependent in dependents)
+            {
+                Calculation calculation = _calculationRepository.GetCalculation(dependent);
+                calculation.isDeprecated = true;
+                calculation._calculationRepository = _calculationRepository;
+                calculation._relationRepository = _relationRepository;
+
+                calculation.Save();
+
+                if(calculation.id != null)
+                {
+                    calculation.MarkDependentsAsDeprecated();
+                }
+            }
+        }
+
         public void Save()
         {
-            if (id == null)
+            if (this.id == null)
             {
-                id = _repository.SaveCalculation(this);
+                this.id = _calculationRepository.SaveCalculation(this);
             }
             else
             {
-                _repository.UpdateCalculation(this);
+                _calculationRepository.UpdateCalculation(this);
+
+                _relationRepository.DeleteRelation((int)this.id);
+            }
+
+            foreach (var dependency in _dependencies)
+            {
+                _relationRepository.SaveRelation((int)this.id, dependency);
             }
         }
     }

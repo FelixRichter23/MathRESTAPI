@@ -17,6 +17,8 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<ICalculationRepository, CalculationRepository>();
 
+builder.Services.AddSingleton<IRelationRepository, RelationRepository>();
+
 builder.Services.AddTransient<QueryFactory>(options => 
 {
     var connection = new SqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"));

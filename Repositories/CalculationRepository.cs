@@ -15,9 +15,9 @@ namespace MathAPI.Repositories
         {
             return _db.Query(_tableName).InsertGetId<int>(new
             {
-                Expression = calculation.expressionWithRelations,
+                Expression = calculation.expression,
                 Result = calculation.result,
-                LastUpdate = calculation.lastUpdate
+                IsDeprecated = calculation.isDeprecated
             });
         }
 
@@ -32,7 +32,7 @@ namespace MathAPI.Repositories
             {
                 Expression = calculation.expression,
                 Result = calculation.result,
-                LastUpdate = calculation.lastUpdate
+                IsDeprecated = calculation.isDeprecated
             });
         }
 
