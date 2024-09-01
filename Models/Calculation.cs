@@ -1,12 +1,5 @@
 ﻿using MathAPI.Repositories;
-using Microsoft.IdentityModel.Tokens;
-using System.ComponentModel;
 using System.Data;
-using System.Linq.Expressions;
-using System.Reflection.Metadata;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace MathAPI.Models
@@ -39,6 +32,13 @@ namespace MathAPI.Models
             ValidateExpression();
         }
 
+        /// <summary>
+        /// Validates and processes the expression, ensuring it conforms to expected syntax and symbols.
+        /// Throws an exception if the expression is invalid.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown if the expression is null or empty.</exception>
+        /// <exception cref="ArgumentException">Thrown if the expression contains invalid characters, symbols, or consecutive operators.</exception>
+
         private void ValidateExpression()
         {
             if (string.IsNullOrEmpty(expression)) throw new ArgumentNullException();
@@ -49,41 +49,45 @@ namespace MathAPI.Models
 
             Regex validFormulaRegex = new Regex(@"^(?:log\(\d+;\d+\)|\d+(?:\,\d+)?(?:\^\d+(?:\,\d+)?)?|[+\-*\/()]|\{\d+\})+$");
 
+            if (Regex.IsMatch(expression, @"[+\-*\/]{2,}"))
+            {
+                throw new ArgumentException("The expression contains invalid consecutive operators.");
+            }
+
             if (!validFormulaRegex.IsMatch(expression))
             {
                 throw new ArgumentException("The expression contains invalid symbols or characters.");
             }
 
-            CheckBracklets();
+            CheckParenthensis();
         }
 
 
         /// <summary>
-        /// Ensures that brackets in the expression are correctly balanced and formatted.
+        /// Ensures that the parentheses and curly brackets in the expression are correctly balanced and formatted.
+        /// Throws an exception if the brackets are mismatched or incorrectly placed.
         /// </summary>
-        /// <param name="expression"></param>
-        /// <returns>True if the brackets are in a valid format.</returns>
-        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ArgumentException">Thrown if the brackets in the expression are not correctly balanced or formatted.</exception>
 
-        private void CheckBracklets()
+        private void CheckParenthensis()
         {
             int count = 0;
             int curlyCount = 0;
 
-            foreach (char bracket in expression.Where(c => c == '(' ||c == ')'))
+            foreach (char parenthensis in expression.Where(c => c == '(' ||c == ')'))
             {
-                if (bracket == '(') count++;
-                if (bracket == ')') count--;
+                if (parenthensis == '(') count++;
+                if (parenthensis == ')') count--;
                 if (count < 0)
                 {
                     throw new ArgumentException("The brackets in the expression are not formatted correctly.");
                 }
             }
 
-            foreach (char bracket in expression.Where(c => c == '{' || c == '}'))
+            foreach (char parenthensis in expression.Where(c => c == '{' || c == '}'))
             {
-                if (bracket == '{') count++;
-                if (bracket == '}') count--;
+                if (parenthensis == '{') count++;
+                if (parenthensis == '}') count--;
                 if (count < 0 || count > 1)
                 {
                     throw new ArgumentException("The curly brackets in the expression are not formatted correctly.");
@@ -95,10 +99,12 @@ namespace MathAPI.Models
         }
 
         /// <summary>
-        /// Identifies and loads related calculations referenced by IDs within curly braces in the expression.
+        /// Identifies and loads related calculations based on IDs found within curly braces in the expression.
+        /// Replaces the IDs with the result of the referenced calculations.
         /// </summary>
-        /// <param name="expression"></param>
-        /// <exception cref="ArgumentException"></exception>
+        /// <param name="expression">The expression containing IDs within curly braces.</param>
+        /// <returns>The expression with IDs replaced by the results of the referenced calculations.</returns>
+        /// <exception cref="ArgumentException">Thrown if the expression references itself.</exception>
 
         private string LoadRelations(string expression) 
         {
@@ -122,9 +128,9 @@ namespace MathAPI.Models
         }
 
         /// <summary>
-        /// Performs the calculation and returns it.
+        /// Performs the calculation based on the expression and returns the calculation instance with the result.
         /// </summary>
-        /// <returns>Result as double</returns>
+        /// <returns>The current instance of Calculation with the computed result.</returns>
 
         public Calculation Calculate()
         {
@@ -132,6 +138,16 @@ namespace MathAPI.Models
             this.isDeprecated = false;
             return this;
         }
+
+        /// <summary>
+        /// Recursively calculates the value of the given expression.
+        /// Supports basic arithmetic operations, exponentiation, and logarithms.
+        /// </summary>
+        /// <param name="expression">The expression to be calculated.</param>
+        /// <returns>The calculated result as a double.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if the expression is null or empty.</exception>
+        /// <exception cref="DivideByZeroException">Thrown if a division by zero is attempted.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the expression is invalid or contains unsupported operations.</exception>
 
         private double calculate(string expression)
         {
@@ -183,9 +199,16 @@ namespace MathAPI.Models
 
                 if (divisorIndex > 0)
                 {
+                    double divisor = calculate(expression.Substring(divisorIndex + 1, expression.Length - divisorIndex - 1));
+
+                    if (divisor == 0)
+                    {
+                        throw new DivideByZeroException();
+                    }
+
                     return
                        calculate(expression.Substring(0, divisorIndex))
-                       / calculate(expression.Substring(divisorIndex + 1, expression.Length - divisorIndex - 1));
+                       / divisor;
                 }
             }
 
@@ -212,6 +235,15 @@ namespace MathAPI.Models
             throw new InvalidOperationException();
         }
 
+        /// <summary>
+        /// Retrieves a calculation by its ID from the repository. 
+        /// If the calculation is marked as deprecated, it is recalculated and updated in the repository.
+        /// </summary>
+        /// <param name="id">The ID of the calculation to retrieve.</param>
+        /// <param name="calculationRepo">The repository to retrieve the calculation from.</param>
+        /// <returns>The retrieved or recalculated Calculation object.</returns>
+        /// <exception cref="ArgumentException">Thrown if a calculation with the specified ID does not exist.</exception>
+
         public static Calculation GetCalculation(int id, ICalculationRepository calculationRepo)
         {
             Calculation calculation;
@@ -235,6 +267,10 @@ namespace MathAPI.Models
             return calculation;
         }
 
+        /// <summary>
+        /// Marks all dependent calculations as deprecated, recursively updating all calculations that depend on this one.
+        /// </summary>
+
         public void MarkDependentsAsDeprecated()
         {
             if (this.id == null) return;
@@ -257,6 +293,13 @@ namespace MathAPI.Models
                 }
             }
         }
+
+        /// <summary>
+        /// Saves the current calculation to the repository. 
+        /// If the calculation is new, it is added to the repository and assigned an ID.
+        /// If the calculation already exists, it is updated in the repository.
+        /// Additionally, the relations (dependencies) of the calculation are updated.
+        /// </summary>
 
         public void Save()
         {

@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35208.52
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MathAPI", "MathAPI.csproj", "{4F68B314-7A21-4796-9E54-5B8EBDEE4843}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MathAPI", "MathAPI.csproj", "{4F68B314-7A21-4796-9E54-5B8EBDEE4843}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MathAPITestProject", "..\MathAPITestProject\MathAPITestProject.csproj", "{DB68DAB3-01AF-4912-BF84-E6DE4D7E6ABD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{4F68B314-7A21-4796-9E54-5B8EBDEE4843}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4F68B314-7A21-4796-9E54-5B8EBDEE4843}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4F68B314-7A21-4796-9E54-5B8EBDEE4843}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB68DAB3-01AF-4912-BF84-E6DE4D7E6ABD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB68DAB3-01AF-4912-BF84-E6DE4D7E6ABD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB68DAB3-01AF-4912-BF84-E6DE4D7E6ABD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB68DAB3-01AF-4912-BF84-E6DE4D7E6ABD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

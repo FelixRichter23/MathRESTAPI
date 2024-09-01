@@ -1,7 +1,4 @@
-﻿using MathAPI.Models;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-
-namespace MathAPI.Repositories
+﻿namespace MathAPI.Repositories
 {
     public interface IRelationRepository
     {

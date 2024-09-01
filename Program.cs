@@ -1,9 +1,7 @@
 using MathAPI.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Design;
 using SqlKata.Compilers;
 using SqlKata.Execution;
-using System.Configuration;
 using System.Data.SqlClient;
 
 var builder = WebApplication.CreateBuilder(args);
